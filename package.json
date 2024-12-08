@@ -1,0 +1,39 @@
+{
+  "name": "my-dapp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@alephium/web3": "^1.8.5",
+    "@alephium/web3-wallet": "^1.8.5",
+    "@alephium/web3-react": "^1.8.5",
+    "@peculiar/asn1-ecc": "^2.3.14",
+    "@peculiar/asn1-schema": "^2.3.13",
+    "cbor": "^9.0.1",
+    "elliptic": "^6.6.1",
+    "ethers": "^6.13.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite-plugin-node-polyfills": "^0.22.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@types/elliptic": "^6.4.18",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react-swc": "^3.5.0",
+    "eslint": "^9.13.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.14",
+    "globals": "^15.11.0",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.11.0",
+    "vite": "^5.4.10"
+  }
+}
