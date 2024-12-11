@@ -11,16 +11,14 @@
   },
   "dependencies": {
     "@alephium/web3": "^1.8.5",
-    "@alephium/web3-wallet": "^1.8.5",
     "@alephium/web3-react": "^1.8.5",
     "@peculiar/asn1-ecc": "^2.3.14",
     "@peculiar/asn1-schema": "^2.3.13",
-    "cbor": "^9.0.1",
+    "cbor2": "^1.8.0",
     "elliptic": "^6.6.1",
     "ethers": "^6.13.4",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "vite-plugin-node-polyfills": "^0.22.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",

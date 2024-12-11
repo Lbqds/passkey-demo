@@ -1,10 +1,9 @@
-import { binToHex, concatBytes, codec, bs58, NodeProvider, HexString, hexToBinUnsafe, web3, ONE_ALPH } from '@alephium/web3'
-import cbor from 'cbor'
+import { sign as signRaw, binToHex, concatBytes, codec, bs58, NodeProvider, HexString, hexToBinUnsafe, web3, ONE_ALPH, publicKeyFromPrivateKey } from '@alephium/web3'
+import { decode as cborDecode } from 'cbor2'
 import * as elliptic from 'elliptic'
 import { AsnParser } from '@peculiar/asn1-schema'
 import { ECDSASigValue } from '@peculiar/asn1-ecc'
 import * as BN from 'bn.js'
-import { PrivateKeyWallet } from '@alephium/web3-wallet'
 
 const nodeProvider = new NodeProvider('http://127.0.0.1:22973')
 web3.setCurrentNodeProvider(nodeProvider)
@@ -143,7 +142,8 @@ export async function createPasskeyAccount(walletName: string) {
   if (response.attestationObject === undefined) {
     throw new Error(`Expected an attestation response, but got ${credential.response}`)
   }
-  const attestationObject = cbor.decode(response.attestationObject)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const attestationObject = cborDecode(new Uint8Array(response.attestationObject)) as any
   const authData = attestationObject.authData as Uint8Array
 
   const dataView = new DataView(new ArrayBuffer(2))
@@ -151,7 +151,8 @@ export async function createPasskeyAccount(walletName: string) {
   idLenBytes.forEach((value, index) => dataView.setUint8(index, value))
   const credentialIdLength = dataView.getUint16(0)
   const publicKeyBytes = authData.slice(55 + credentialIdLength)
-  const publicKeyObject = cbor.decode(new Uint8Array(publicKeyBytes))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const publicKeyObject = cborDecode(new Uint8Array(publicKeyBytes)) as any
   const publicKey = compressPublicKey(new Uint8Array(publicKeyObject.get(-2)), new Uint8Array(publicKeyObject.get(-3)))
   console.log(`public key: ${binToHex(publicKey)}`)
   console.log(`credential id: ${binToHex(new Uint8Array(credential.rawId))}`)
@@ -163,20 +164,18 @@ export async function createPasskeyAccount(walletName: string) {
 
 function compressPublicKey(x: Uint8Array, y: Uint8Array): Uint8Array {
   const key = curve.keyFromPublic({ x: binToHex(x), y: binToHex(y) }, 'hex')
-  const compressedPublicKey = new Uint8Array(Buffer.from(key.getPublic(true, 'hex'), 'hex'))
-  return compressedPublicKey
+  return hexToBinUnsafe(key.getPublic(true, 'hex'))
 }
 
 async function transferFromDevGenesis(toAddress: string) {
-  const wallet = new PrivateKeyWallet({
-    privateKey: 'a642942e67258589cd2b1822c631506632db5a12aabcf413604e785300d762a5'
-  })
+  const privateKey = 'a642942e67258589cd2b1822c631506632db5a12aabcf413604e785300d762a5'
+  const publicKey  = publicKeyFromPrivateKey(privateKey)
   const amount = 1000n * ONE_ALPH
   const buildResult = await nodeProvider.transactions.postTransactionsBuild({
-    fromPublicKey: wallet.publicKey,
+    fromPublicKey: publicKey,
     destinations: [{ address: toAddress, attoAlphAmount: amount.toString() }]
   })
-  const signature = await wallet.signRaw(wallet.address, buildResult.txId)
+  const signature = signRaw(buildResult.txId, privateKey)
   await nodeProvider.transactions.postTransactionsSubmit({
     unsignedTx: buildResult.unsignedTx,
     signature
