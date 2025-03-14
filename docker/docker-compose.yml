@@ -1,6 +1,6 @@
 services:
   alephium:
-    image: alephium/dev-alephium:danube-0.1.0
+    image: alephium/dev-alephium:latest
     restart: unless-stopped
     ports:
       - 19973:19973/tcp

@@ -75,6 +75,7 @@ async function sign(txId: HexString, walletId: HexString) {
   }) as PublicKeyCredential
   const response = credential.response as AuthenticatorAssertionResponse
   const signature = parseSignature(new Uint8Array(response.signature))
+  console.log(`tx id: ${txId}`)
 
   const authenticatorData = new Uint8Array(response.authenticatorData)
   const clientDataJSON = new Uint8Array(response.clientDataJSON)
@@ -85,12 +86,27 @@ async function sign(txId: HexString, walletId: HexString) {
 }
 
 function encodeWebauthnPayload(authenticatorData: Uint8Array, clientDataJSON: Uint8Array) {
+  const clientDataStr = new TextDecoder('utf-8').decode(clientDataJSON)
+  console.log(`client data str: ${clientDataStr}`)
+  const index0 = clientDataStr.indexOf("challenge") + 12
+  const index1 = clientDataStr.indexOf('"', index0 + 1)
+  const clientDataPrefixStr = clientDataStr.slice(0, index0)
+  const clientDataSuffixStr = clientDataStr.slice(index1, clientDataStr.length)
+  console.log(`${clientDataPrefixStr}`)
+  console.log(`${clientDataSuffixStr}`)
+
+  const encoder = new TextEncoder()
+  const clientDataPrefix = encoder.encode(clientDataPrefixStr)
+  const clientDataSuffix = encoder.encode(clientDataSuffixStr)
+
   const bytes1 = codec.byteStringCodec.encode(authenticatorData)
-  const bytes2 = codec.byteStringCodec.encode(clientDataJSON)
-  const length = bytes1.length + bytes2.length
+  const bytes2 = codec.byteStringCodec.encode(clientDataPrefix)
+  const bytes3 = codec.byteStringCodec.encode(clientDataSuffix)
+  const length = bytes1.length + bytes2.length + bytes3.length
   const totalLength = Math.ceil(length / 64) * 64
   const padding = new Uint8Array(totalLength - length).fill(0)
-  const payload = concatBytes([bytes1, bytes2, padding])
+  const payload = concatBytes([bytes1, bytes2, bytes3, padding])
+  console.log(`${binToHex(payload)}`)
   return Array.from({ length: payload.length / 64 }, (_, i) => payload.subarray(i * 64, (i + 1) * 64))
 }
 
