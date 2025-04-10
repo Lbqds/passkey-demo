@@ -10,8 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@alephium/web3": "^1.11.2",
-    "@alephium/web3-react": "^1.11.2",
+    "@alephium/web3": "^1.12.0-beta.0",
+    "@alephium/web3-react": "^1.12.0-beta.0",
     "@peculiar/asn1-ecc": "^2.3.14",
     "@peculiar/asn1-schema": "^2.3.13",
     "cbor2": "^1.8.0",
