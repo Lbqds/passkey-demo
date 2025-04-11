@@ -1,4 +1,4 @@
-import { sign as signRaw, binToHex, concatBytes, codec, bs58, NodeProvider, HexString, hexToBinUnsafe, web3, ONE_ALPH, publicKeyFromPrivateKey } from '@alephium/web3'
+import { sign as signRaw, binToHex, concatBytes, codec, bs58, NodeProvider, HexString, hexToBinUnsafe, web3, ONE_ALPH, publicKeyFromPrivateKey, node } from '@alephium/web3'
 import { decode as cborDecode } from 'cbor2'
 import * as elliptic from 'elliptic'
 import { AsnParser } from '@peculiar/asn1-schema'
@@ -39,7 +39,7 @@ export function getWalletAddress(name: string): string {
 }
 
 function encodePasskeyToBase58(publicKey: Uint8Array): string {
-  const encodedPublicKey = concatBytes([new Uint8Array([1]), publicKey])
+  const encodedPublicKey = concatBytes([new Uint8Array([3]), publicKey])
   const checksum = djb2(encodedPublicKey)
   const bytes = concatBytes([
     new Uint8Array([4]),
@@ -51,17 +51,20 @@ function encodePasskeyToBase58(publicKey: Uint8Array): string {
 
 export async function transfer(walletName: string, toAddress: string, amount: bigint) {
   const wallet = getWallet(walletName)
-  const buildResult = await nodeProvider.transactions.postTransactionsBuild({
-    fromPublicKey: wallet.publicKey,
-    fromPublicKeyType: 'passkey',
+  const buildResults = await nodeProvider.groupless.postGrouplessTransfer({
+    fromAddress: encodePasskeyToBase58(hexToBinUnsafe(wallet.publicKey)),
     destinations: [{ address: toAddress, attoAlphAmount: amount.toString() }]
   })
-  const signatures = await sign(buildResult.txId, wallet.rawId)
-  const submitResult = await nodeProvider.multisig.postMultisigSubmit({
-    unsignedTx: buildResult.unsignedTx,
-    signatures: signatures.map((s) => binToHex(s)) }
-  )
-  return submitResult
+  if (buildResults.length === 0) throw new Error(`Not enough balance`)
+  let submitResult: node.SubmitTxResult
+  for (const buildResult of buildResults) {
+    const signatures = await sign(buildResult.txId, wallet.rawId)
+    submitResult = await nodeProvider.multisig.postMultisigSubmit({
+      unsignedTx: buildResult.unsignedTx,
+      signatures: signatures.map((s) => binToHex(s)) }
+    )
+  }
+  return submitResult!
 }
 
 async function sign(txId: HexString, walletId: HexString) {
@@ -87,13 +90,10 @@ async function sign(txId: HexString, walletId: HexString) {
 
 function encodeWebauthnPayload(authenticatorData: Uint8Array, clientDataJSON: Uint8Array) {
   const clientDataStr = new TextDecoder('utf-8').decode(clientDataJSON)
-  console.log(`client data str: ${clientDataStr}`)
   const index0 = clientDataStr.indexOf("challenge") + 12
   const index1 = clientDataStr.indexOf('"', index0 + 1)
   const clientDataPrefixStr = clientDataStr.slice(0, index0)
   const clientDataSuffixStr = clientDataStr.slice(index1, clientDataStr.length)
-  console.log(`${clientDataPrefixStr}`)
-  console.log(`${clientDataSuffixStr}`)
 
   const encoder = new TextEncoder()
   const clientDataPrefix = encoder.encode(clientDataPrefixStr)
@@ -102,10 +102,13 @@ function encodeWebauthnPayload(authenticatorData: Uint8Array, clientDataJSON: Ui
   const bytes1 = codec.byteStringCodec.encode(authenticatorData)
   const bytes2 = codec.byteStringCodec.encode(clientDataPrefix)
   const bytes3 = codec.byteStringCodec.encode(clientDataSuffix)
-  const length = bytes1.length + bytes2.length + bytes3.length
+
+  const payloadLength = bytes1.length + bytes2.length + bytes3.length
+  const lengthPrefix = codec.i32Codec.encode(payloadLength)
+  const length = lengthPrefix.length + payloadLength
   const totalLength = Math.ceil(length / 64) * 64
   const padding = new Uint8Array(totalLength - length).fill(0)
-  const payload = concatBytes([bytes1, bytes2, bytes3, padding])
+  const payload = concatBytes([lengthPrefix, bytes1, bytes2, bytes3, padding])
   console.log(`${binToHex(payload)}`)
   return Array.from({ length: payload.length / 64 }, (_, i) => payload.subarray(i * 64, (i + 1) * 64))
 }
@@ -125,7 +128,7 @@ function parseSignature(signature: Uint8Array): Uint8Array {
 
   const halfCurveOrder = curve.n!.shrn(1)
   const s = new BN.BN(sBytes)
-  if (s > halfCurveOrder) {
+  if (s.gt(halfCurveOrder)) {
     sBytes = new Uint8Array(curve.n!.sub(s).toArray('be', 32))
   }
   return new Uint8Array([...rBytes, ...sBytes])
